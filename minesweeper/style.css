@@ -9,6 +9,8 @@ html{
 #container{
 	text-align: center;
 	padding: 1rem;
+	width: calc(calc(1.5rem * 30) + 3px);
+	margin-inline: auto;
 }
 
 #restart{
@@ -45,6 +47,7 @@ html{
 #gameTable{
 	border-collapse: collapse;
 	border: 2px solid black;
+    margin-inline: auto;
 }
 
 .cell{

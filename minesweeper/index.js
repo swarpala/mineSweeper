@@ -43,7 +43,7 @@ gameBoard.addEventListener('mousedown', ev => {
 
     if ("which" in ev)  // Gecko (Firefox), WebKit (Safari/Chrome) & Opera
         isRightButton = ev.which == 3; 
-    else if ("button" in e)  // IE, Opera 
+    else if ("button" in ev)  // IE, Opera 
         isRightButton = ev.button == 2; 
 
     if(isRightButton) mouseObserver.right = true;
@@ -56,7 +56,7 @@ gameBoard.addEventListener('mouseup', ev => {
 
     if ("which" in ev)  // Gecko (Firefox), WebKit (Safari/Chrome) & Opera
         isRightButton = ev.which == 3; 
-    else if ("button" in e)  // IE, Opera 
+    else if ("button" in ev)  // IE, Opera 
         isRightButton = ev.button == 2; 
 
     if(isRightButton) mouseObserver.right = false;
