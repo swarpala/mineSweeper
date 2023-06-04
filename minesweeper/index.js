@@ -1,41 +1,65 @@
 const rowNum = 16, colNum = 30;
 let mineNum = 99;
 const gameBoard = document.getElementById('gameBoard');
-let gameArray = [];
-/* todo
-  gameArray Classify
-    constructor
-      array
-      directions
-    method setGameArray(array)
-*/
-for(let i=0; i<rowNum; i++){
-  let row = [];
-  for(let j=0; j<colNum; j++) row.push(0);
-  gameArray.push(row);
+class MineField{
+  constructor(){
+    this.field = [];
+
+    for(let i=0; i<rowNum; i++){
+      let row = [];
+      for(let j=0; j<colNum; j++) row.push(0);
+      this.field.push(row);
+    }
+
+    this.directions = [
+      {x:-1, y:-1},
+      {x: 0, y:-1},
+      {x: 1, y:-1},
+      {x:-1, y: 0},
+      {x: 1, y: 0},
+      {x:-1, y: 1},
+      {x: 0, y: 1},
+      {x: 1, y: 1}
+    ];
+  }
+  /**
+   * @param {Number} firstClickedCellIdx The date
+   */
+  setMineField(firstClickedCellIdx){
+    mineIdx = getRandomNumberArray(
+      rowNum * colNum,
+      mineNum,
+      firstClickedCellIdx
+    );
+    mineIdx.forEach(idx => {
+      let row = ~~(idx / colNum);
+      let col = idx % colNum;
+      this.field[row][col] = -1;
+      this.directions.forEach(dir => {
+        if(
+          row + dir.y < 0 ||
+          row + dir.y >= rowNum ||
+          col + dir.x < 0 ||
+          col + dir.x >= colNum
+        ) return;
+        if(this.field[row + dir.y][col + dir.x] < 0) return;
+        this.field[row + dir.y][col + dir.x]++;
+      });
+    });
+  };
 }
+
+let mineField = new MineField();
 
 let mouseObserver = {
 	left: false,
 	right: false
 };
 
-const directions = [
-  {x:-1, y:-1},
-  {x: 0, y:-1},
-  {x: 1, y:-1},
-  {x:-1, y: 0},
-  {x: 1, y: 0},
-  {x:-1, y: 1},
-  {x: 0, y: 1},
-  {x: 1, y: 1}
-];
-
 let mineIdx;
 let isGameStartedYet = true;
 
 function getRandomNumberArray(range, amount, preventIdx){
-	debugger;
 	let selectedArray = [];
 	while(selectedArray.length < amount){
 		let tmp = ~~(Math.random() * range);
@@ -87,9 +111,25 @@ gameBoard.addEventListener('mouseup', ev => {
 
 // gameBoard click prevent & click observer event setting end---
 
-const gameOver = () => {
-  console.log('game Over!')
+const gameOver = () => console.log('game Over!');
+
+/**
+ * @param {Coordinate} cell
+ */
+const isOutOfBound = (cell, dir) => {
+  return (
+    cell.row + dir.y < 0 ||
+    cell.row + dir.y >= colNum ||
+    cell.col + dir.x < 0 ||
+    cell.col + dir.x >= rowNum
+  );
 };
+const reveal = new CustomEvent('reveal');
+const simulateClick = new MouseEvent('click',{
+  'view': window,
+  'bubbles': true,
+  'cancelable': false
+});
 
 for(let i=0; i<rowNum; i++){
 	const row = document.createElement('tr');
@@ -99,42 +139,40 @@ for(let i=0; i<rowNum; i++){
 		cell.setAttribute('row', `${i}`);
 		cell.setAttribute('col', `${j}`);
     cell.addEventListener('click', ev => {
-      const revealedCoordinate = new Coordinate(
+      const revealedCell = new Coordinate(
         Number(ev.target.getAttribute('row')),
         Number(ev.target.getAttribute('col'))
       );
       if(isGameStartedYet){
-        mineIdx = getRandomNumberArray(
-          rowNum * colNum,
-          mineNum,
-          revealedCoordinate.idx
-        );
+        mineField.setMineField(revealedCell.idx);
         isGameStartedYet = false;
-        mineIdx.forEach(idx => {
-          let row = ~~(idx / colNum);
-          let col = idx % colNum;
-          gameArray[row][col] = -1;
-          directions.forEach(item => {
-            if(
-              row + item.y < 0 ||
-              row + item.y >= rowNum ||
-              col + item.x < 0 ||
-              col + item.x >= colNum
-            ) return;
-            if(gameArray[row + item.y][col + item.x] < 0) return;
-            gameArray[row + item.y][col + item.x]++;
-          })
-        })
       }
-      if(gameArray[revealedCoordinate.row][revealedCoordinate.col] < 0) gameOver();
-      
+      console.log('clicked');
+      if(mineField.field[revealedCell.row][revealedCell.col] < 0) gameOver()
+      else {
+        let isNoMineAround = true;
+        for(const dir of mineField.directions){
+          if(isOutOfBound(revealedCell, dir)) continue;
+          if(mineField.field[revealedCell.row + dir.y][revealedCell.col + dir.x] < 0){
+            isNoMineAround = false;
+            break;
+          }
+        }
+        if(isNoMineAround){
+          for(const dir of mineField.directions){
+            if(isOutOfBound(revealedCell, dir)) continue;
+            const dirCell = gameBoard.querySelector(`[row='${revealedCell.row + dir.y}'][col='${revealedCell.col + dir.x}']`);
+            if(dirCell.classList.contains('reveled')) continue;
+            dirCell.classList.add('reveled');
+            dirCell.dispatchEvent(simulateClick);
+          }
+        }
+      }
     });
 		row.appendChild(cell);
 	}
 	gameBoard.appendChild(row);
 }
-
-const reveal = new CustomEvent('reveal');
 
 class Coordinate {
   constructor(row, col){
