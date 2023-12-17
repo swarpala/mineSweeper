@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <meta charset='utf-8'>
+      <title>minesweeper</title>
+   </head>
+   <body>
+      <div id='gameOver'>
+         <h1></h1>
+         <h6 >click to restart</h6>
+      </div>
+      <span id='remain'></span>
+      <table>
+         <tbody id='field'></tbody>
+      </table>
+      <script>
+         const field = document.getElementById('field'),
+             remain = document.getElementById('remain');
+         const rSize = 16,
+             cSize = 30;
+         const directions = [
+	{r:-1,c: 0},
+	{r:-1,c: 1},
+	{r: 0,c: 1},
+	{r: 1,c: 1},
+	{r: 1,c: 0},
+	{r: 1,c:-1},
+	{r: 0,c:-1},
+	{r:-1,c:-1}
+         ];
+         let board = [];
+
+         for (let i = 0; i < rSize; i++) {
+             let tr = document.createElement('tr');
+             let row = [];
+             for (let j = 0; j < cSize; j++) {
+                 let td = document.createElement('td');
+                 td.val = 0;
+                 td.rowIndex = i;
+                 td.colIndex = j;
+                 td.flatIdx = i * rSize + j;
+                 tr.appendChild(td);
+                 row.push(td);
+             }
+             field.appendChild(tr);
+             board.push(row);
+         }
+         let flatBoard = board.flat();
+         let mineArray = [],
+             mineTds = [],
+             mine = 99,
+             remainMine = mine,
+             yetClicked = true;
+
+         function updateRemain() {
+             remain.innerText = `남은 지뢰: ${remainMine<10?'0'+remainMine:remainMine}`
+         };
+
+         updateRemain();
+
+         function init(r, c) {
+             const clicked = r * cSize + c;
+             while (mineArray.length != mine) {
+                 let idx = ~~(Math.random() * rSize * cSize);
+                 if (idx === clicked || mineArray.includes(idx)) {
+                     continue;
+                 }
+                 mineArray.push(idx);
+             }
+             mineArray.forEach(mineIdx => {
+                 const mineTd = flatBoard[mineIdx];
+                 mineTd.val = -1;
+                 mineTds.push(mineTd);
+                 for (dir of directions) {
+                     if (mineTd.rowIndex + dir.r < 0 || mineTd.rowIndex + dir.r >= rSize || mineTd.colIndex + dir.c < 0 || mineTd.colIndex + dir.c >= cSize) {
+                         continue;
+                     } else {
+                         let tmp = board[mineTd.rowIndex + dir.r][mineTd.colIndex + dir.c];
+                         if (tmp.val >= 0) tmp.val++;
+                     }
+                 }
+             })
+         };
+         let isLeftDown = false,
+             isRightDown = false,
+             isBothDown = false,
+             isGameOver = false;
+         document.addEventListener('contextmenu', ev => {
+             ev.preventDefault();
+         })
+
+         flatBoard.forEach(td => {
+
+             td.addEventListener('mousedown', function(ev) {
+                 if (ev.which === 1) {
+                     isLeftDown = true
+                 } else if (ev.which === 3) {
+                     isRightDown = true
+                 }
+                 if (isLeftDown && isRightDown) {
+                     isBothDown = true
+                 }
+             })
+
+             td.addEventListener('mouseup', function(ev) {
+                 if (ev.which === 1) {
+                     isLeftDown = false;
+                     if (yetClicked) {
+                         init(this.rowIndex, this.colIndex);
+                         yetClicked = false
+                     }
+                 } else if (ev.which === 3) {
+                     isRightDown = false
+                 }
+                 if (isBothDown) {
+                     revealAround(this.rowIndex, this.colIndex);
+                 } else {
+                     if (ev.which === 1) {
+                         reveal(this.rowIndex, this.colIndex);
+                     } else if (ev.which === 3) {
+                         flag(this.rowIndex, this.colIndex)
+                     }
+                 }
+                 setTimeout(() => isBothDown = false, 100);
+             })
+
+         });
+
+         function reveal(r, c) {
+             const td = board[r][c];
+             if (td.classList.contains('reveal') || td.classList.contains('flag')) return;
+             td.classList.add('reveal');
+             if (td.val === -1) {
+                 gameOver(0)
+             } else if (td.val === 0) {
+                 revealAround(r, c)
+             } else {
+                 td.innerText = getText(td.val);
+             }
+         }
+
+         function revealAround(r, c) {
+             if (!board[r][c].classList.contains('reveal')) return;
+             let tdVal = board[r][c].val,
+                 cnt = 0,
+                 revealArray = [];
+             for (dir of directions) {
+                 if (r + dir.r < 0 || r + dir.r >= rSize || c + dir.c < 0 || c + dir.c >= cSize) {
+                     continue;
+                 } else {
+                     revealArray.push([r + dir.r, c + dir.c]);
+                     if (board[r + dir.r][c + dir.c].classList.contains('flag')) cnt++;
+                 }
+             }
+             if (tdVal === cnt) revealArray.forEach(cor => reveal(cor[0], cor[1]));
+         }
+
+         function getText(val) {
+             switch (val) {
+                 case 0:
+                     return '';
+                 case -1:
+                     return '🧨'
+                 default:
+                     return val;
+             }
+         }
+
+         function flag(r, c) {
+             const td = board[r][c];
+             if (td.classList.contains('reveal')) return;
+             if (!td.classList.contains('flag')) {
+                 td.classList.add('flag');
+                 remainMine--;
+             } else {
+                 td.classList.remove('flag');
+                 remainMine++;
+             }
+             updateRemain();
+             if (isAllFlagCorrect()) gameOver(1);
+         }
+
+         function isAllFlagCorrect() {
+             if (remainMine) return false;
+             for (idx of mineArray) {
+                 if (!flatBoard[idx].classList.contains('flag')) return false;
+             }
+             return true;
+         }
+
+         function gameOver(stat) {
+             flatBoard.forEach(td => {
+                 td.classList.add('reveal');
+                 td.innerText = getText(td.val);
+             })
+             const gameOverDiv = document.getElementById('gameOver');
+             gameOverDiv.querySelector('h1').innerText = stat ? 'You Win!' : 'Game Over!';
+             gameOverDiv.style.zIndex = 1;
+             gameOverDiv.style.opacity = 1;
+             gameOverDiv.addEventListener('click', () => {
+                 location.reload();
+             });
+         }
+         
+      </script>
+      <style>
+html{
+     height:100%;
+     -webkit-user-select: none !important;
+     -moz-user-select: none !important;
+     -ms-user-select: none !important;
+     user-select: none !important;
+}
+body{
+     background-color: #f2f2f2;
+     height:100%;
+     display:flex;
+     justify-content:center;
+     margin:0;
+     align-items:center;
+     flex-direction:column;
+}
+#remain{
+     width:10em;
+     position:relative;
+     left:33.7em;
+     font-size:20px;
+     margin:0.5em;
+}
+table{
+    border-collapse:collapse;
+}
+td{
+     font-family:consolas;
+     font-weight:bolder;
+     border:solid;
+     border-color:#4e5b52;
+     border-width:3px;
+     background-color:#9ed49e;
+     width:40px;
+     height:40px;
+     font-size:20px;
+     text-align:center;
+}
+td:hover{
+    cursor:pointer;
+    background-color:rgb(237,194,46);
+}
+td.ready{
+    cursor:pointer;
+    background-color:rgb(246,94,59);
+}
+td.reveal{
+    color:#384b38;
+    background-color:rgb(238,228,218);
+}
+td.reveal:hover{
+    cursor:default;
+}
+td.flag{
+    background-color:#ff5d5d;
+}
+#gameOver{
+     font-family:consolas;
+     font-size:50px;
+     display:flex;
+     justify-content:center;
+     align-items:center;
+     flex-direction:column;
+     position:fixed;
+     width:100%;
+     height:100%;
+     background-color:#ffffffb3;
+     opacity:0;
+     z-index:-1;
+}
+h1{
+    z-index:1;
+}
+h6{
+    z-index:1;
+    margin:0;
+}
+      </style>
+   </body>
+</html>
